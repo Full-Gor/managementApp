@@ -19,6 +19,7 @@ export default function DashboardScreen() {
 
   const quickActions = [
     { icon: Icons.Send, label: 'Send', route: '/transfer', color: colors.primary },
+    { icon: Icons.Mic, label: 'Voice', route: '/voice-add', color: colors.warning },
     { icon: Icons.Scan, label: 'Scan', route: '/qr-scanner', color: colors.accent },
     { icon: Icons.Plus, label: 'Add', route: '/add-card', color: colors.success },
   ];

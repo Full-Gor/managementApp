@@ -66,6 +66,14 @@ export default function RootLayout() {
             presentation: 'card',
           }}
         />
+        <Stack.Screen
+          name="voice-add"
+          options={{
+            title: 'Voice Add',
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
       </Stack>
     </FinanceProvider>
   );
