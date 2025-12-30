@@ -17,18 +17,38 @@ import { colors } from '../constants/Colors';
 import { useFinance } from '../context/FinanceContext';
 import { Icons } from '../components/Icons';
 import { parseVoiceInput, getSuggestions } from '../utils/voiceParser';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 export default function VoiceAddScreen() {
   const router = useRouter();
   const { addTransaction } = useFinance();
-  const [isListening, setIsListening] = useState(false);
+
+  // Hook de reconnaissance vocale
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    error: speechError,
+    isSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useSpeechRecognition({ language: 'fr-FR' });
+
   const [inputText, setInputText] = useState('');
   const [parsedResult, setParsedResult] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [editedAmount, setEditedAmount] = useState('');
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Animation du micro quand on "écoute"
+  // Mettre à jour inputText avec le transcript de la reconnaissance vocale
+  useEffect(() => {
+    if (transcript) {
+      setInputText(transcript);
+    }
+  }, [transcript]);
+
+  // Animation du micro quand on écoute
   useEffect(() => {
     if (isListening) {
       Animated.loop(
@@ -52,35 +72,54 @@ export default function VoiceAddScreen() {
 
   // Analyser le texte quand il change
   useEffect(() => {
-    if (inputText.length > 2) {
-      const result = parseVoiceInput(inputText);
+    const textToAnalyze = inputText || transcript;
+    if (textToAnalyze && textToAnalyze.length > 2) {
+      const result = parseVoiceInput(textToAnalyze);
       setParsedResult(result);
       if (result && result.amount) {
         setEditedAmount(result.amount.toString());
       }
-      setSuggestions(getSuggestions(inputText));
+      setSuggestions(getSuggestions(textToAnalyze));
     } else {
       setParsedResult(null);
       setSuggestions([]);
     }
-  }, [inputText]);
+  }, [inputText, transcript]);
 
-  const handleMicPress = () => {
+  // Afficher les erreurs de reconnaissance vocale
+  useEffect(() => {
+    if (speechError) {
+      Alert.alert('Erreur', speechError);
+    }
+  }, [speechError]);
+
+  const handleMicPress = async () => {
     if (isListening) {
-      setIsListening(false);
-      // Simuler fin d'écoute
+      stopListening();
     } else {
-      setIsListening(true);
-      // Sur le web, on pourrait utiliser Web Speech API
-      // Sur mobile, on utiliserait @react-native-voice/voice
-      // Pour l'instant, on simule avec un placeholder
+      // Réinitialiser avant de commencer
+      resetTranscript();
+      setInputText('');
 
-      // Afficher un message informatif
-      Alert.alert(
-        'Reconnaissance vocale',
-        'Tapez votre texte ci-dessous.\n\nExemples:\n• "Restaurant 25 euros"\n• "Essence 50€ hier"\n• "Salaire reçu 2000"',
-        [{ text: 'OK', onPress: () => setIsListening(false) }]
-      );
+      if (!isSupported) {
+        Alert.alert(
+          'Non supporté',
+          Platform.OS === 'web'
+            ? 'Utilisez Chrome ou Edge pour la reconnaissance vocale.\n\nVous pouvez aussi taper directement votre texte ci-dessous.'
+            : 'La reconnaissance vocale n\'est pas disponible sur cet appareil.\n\nVous pouvez taper directement votre texte ci-dessous.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const started = await startListening();
+      if (!started && !speechError) {
+        Alert.alert(
+          'Conseil',
+          'Parlez clairement après le bip.\n\nExemples:\n• "Restaurant 25 euros"\n• "Essence 50€ hier"\n• "Salaire reçu 2000"',
+          [{ text: 'OK' }]
+        );
+      }
     }
   };
 
@@ -121,6 +160,14 @@ export default function VoiceAddScreen() {
     return date.toLocaleDateString('fr-FR', options);
   };
 
+  // Texte affiché pendant l'écoute
+  const getDisplayText = () => {
+    if (interimTranscript) {
+      return inputText + interimTranscript;
+    }
+    return inputText;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -131,6 +178,25 @@ export default function VoiceAddScreen() {
           </TouchableOpacity>
           <Text style={styles.title}>Ajouter par la voix</Text>
           <View style={{ width: 24 }} />
+        </View>
+
+        {/* Status Badge */}
+        <View style={styles.statusContainer}>
+          <View style={[
+            styles.statusBadge,
+            { backgroundColor: isSupported ? `${colors.success}20` : `${colors.warning}20` }
+          ]}>
+            <View style={[
+              styles.statusDot,
+              { backgroundColor: isSupported ? colors.success : colors.warning }
+            ]} />
+            <Text style={[
+              styles.statusText,
+              { color: isSupported ? colors.success : colors.warning }
+            ]}>
+              {isSupported ? 'Micro disponible' : 'Saisie manuelle'}
+            </Text>
+          </View>
         </View>
 
         {/* Microphone Button */}
@@ -144,31 +210,41 @@ export default function VoiceAddScreen() {
               ]}
             >
               <LinearGradient
-                colors={isListening ? [colors.accent, colors.primary] : [colors.primary, colors.accent]}
+                colors={isListening ? ['#ff4757', '#ff6b81'] : [colors.primary, colors.accent]}
                 style={styles.micGradient}
               >
                 <View style={styles.micIcon}>
-                  <Icons.Phone size={40} color={colors.text} />
+                  <Icons.Mic size={48} color={colors.text} />
                 </View>
               </LinearGradient>
             </Animated.View>
           </TouchableOpacity>
           <Text style={styles.micText}>
-            {isListening ? 'Écoute en cours...' : 'Appuyez pour parler'}
+            {isListening ? '🔴 Écoute en cours... Appuyez pour arrêter' : '🎤 Appuyez pour parler'}
           </Text>
+
+          {/* Interim transcript display */}
+          {isListening && interimTranscript && (
+            <View style={styles.interimContainer}>
+              <Text style={styles.interimText}>"{interimTranscript}"</Text>
+            </View>
+          )}
         </View>
 
-        {/* Text Input (fallback) */}
+        {/* Text Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>Ou tapez directement :</Text>
+          <Text style={styles.inputLabel}>
+            {isSupported ? 'Ou tapez directement :' : 'Tapez votre transaction :'}
+          </Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, isListening && styles.textInputListening]}
             placeholder='Ex: "Restaurant 25 euros hier"'
             placeholderTextColor={colors.textSecondary}
-            value={inputText}
+            value={getDisplayText()}
             onChangeText={setInputText}
             multiline
             autoCapitalize="none"
+            editable={!isListening}
           />
         </View>
 
@@ -262,7 +338,7 @@ export default function VoiceAddScreen() {
 
             {/* Original Text */}
             <View style={styles.originalTextContainer}>
-              <Text style={styles.originalTextLabel}>Texte original :</Text>
+              <Text style={styles.originalTextLabel}>Texte analysé :</Text>
               <Text style={styles.originalText}>"{parsedResult.originalText}"</Text>
             </View>
           </View>
@@ -315,21 +391,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 20,
-    marginBottom: 32,
+    marginBottom: 16,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
   },
+  statusContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
   micContainer: {
     alignItems: 'center',
     marginBottom: 32,
   },
   micButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     marginBottom: 16,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
@@ -338,22 +435,37 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   micButtonActive: {
+    shadowColor: '#ff4757',
     shadowOpacity: 0.8,
-    shadowRadius: 30,
+    shadowRadius: 40,
   },
   micGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 60,
+    borderRadius: 70,
     justifyContent: 'center',
     alignItems: 'center',
   },
   micIcon: {
-    opacity: 0.9,
+    opacity: 0.95,
   },
   micText: {
     fontSize: 14,
     color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  interimContainer: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: `${colors.accent}20`,
+    borderRadius: 12,
+    maxWidth: '90%',
+  },
+  interimText: {
+    fontSize: 16,
+    color: colors.accent,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   inputSection: {
     marginBottom: 24,
@@ -373,6 +485,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  textInputListening: {
+    borderColor: colors.accent,
+    borderWidth: 2,
   },
   suggestionsContainer: {
     marginBottom: 24,
