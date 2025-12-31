@@ -31,7 +31,32 @@
     },
     "scheme": "financemanager",
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 24,
+            "buildToolsVersion": "34.0.0",
+            "kotlinVersion": "1.9.10",
+            "extraProguardRules": "-keep class com.facebook.hermes.** { *; }"
+          }
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for voice commands.",
+          "speechRecognitionPermission": "Allow $(PRODUCT_NAME) to use speech recognition for voice transactions."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "finance-manager-app"
+      }
+    }
   }
 }
