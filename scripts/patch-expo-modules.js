@@ -26,46 +26,34 @@ if (!fs.existsSync(pluginPath)) {
 let content = fs.readFileSync(pluginPath, 'utf8');
 
 // Check if already patched
-if (content.includes('// PATCHED: Skip publishing')) {
+if (content.includes('// PATCHED_BY_POSTINSTALL')) {
   console.log('Already patched, skipping');
   process.exit(0);
 }
 
-// Find the afterEvaluate block that configures publishing and wrap it with a check
-const publishingPattern = /afterEvaluate\s*\{[^}]*publishing\s*\{/g;
+// Find and comment out the problematic publishing block that uses components.release
+// The issue is in the MavenPublication block that tries to use components.release
+const patchedContent = content.replace(
+  /from\s+components\.release/g,
+  '// PATCHED_BY_POSTINSTALL: commented to fix build error\n        // from components.release'
+);
 
-if (publishingPattern.test(content)) {
-  // Add a guard at the beginning of the file to skip publishing
-  const patchCode = `
-// PATCHED: Skip publishing to fix components.release error
-def publishingDisabled = project.findProperty("expo.modules.core.publishing.disabled")?.toString()?.toBoolean() ?: true
-
-`;
-
-  // Insert after the first line (usually a comment or apply plugin)
-  const lines = content.split('\n');
-  lines.splice(1, 0, patchCode);
-  content = lines.join('\n');
-
-  // Wrap the publishing block with a condition
-  content = content.replace(
-    /(afterEvaluate\s*\{[\s\S]*?)(publishing\s*\{[\s\S]*?\}\s*\})/g,
-    (match, before, publishing) => {
-      return `${before}if (!publishingDisabled) {\n    ${publishing}\n  }`;
-    }
-  );
-
-  fs.writeFileSync(pluginPath, content);
-  console.log('Patched successfully!');
-} else {
-  console.log('Publishing pattern not found, trying alternative patch...');
-
-  // Alternative: just disable the entire publishing section by commenting it out
-  content = content.replace(
-    /publishing\s*\{[\s\S]*?release[\s\S]*?\}\s*\}/g,
-    '// PATCHED: Publishing disabled to fix components.release error\n// publishing { ... }'
-  );
-
-  fs.writeFileSync(pluginPath, content);
-  console.log('Applied alternative patch');
+if (patchedContent !== content) {
+  fs.writeFileSync(pluginPath, patchedContent);
+  console.log('Patched successfully! (commented out components.release)');
+  process.exit(0);
 }
+
+// Alternative: Comment out the entire publishing afterEvaluate block
+const altPatch = content.replace(
+  /(afterEvaluate\s*\{[\s\S]*?publishing\s*\{[\s\S]*?from\s+components[\s\S]*?\}\s*\}\s*\})/g,
+  '// PATCHED_BY_POSTINSTALL: Entire publishing block commented out\n/*\n$1\n*/'
+);
+
+if (altPatch !== content) {
+  fs.writeFileSync(pluginPath, altPatch);
+  console.log('Patched successfully! (commented entire publishing block)');
+  process.exit(0);
+}
+
+console.log('Could not find pattern to patch, file unchanged');
