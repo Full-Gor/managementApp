@@ -1,36 +1,30 @@
 const { withAppBuildGradle } = require('@expo/config-plugins');
 
 /**
- * Plugin pour corriger l'erreur components.release dans build.gradle
- * Cette erreur survient quand ExpoModulesCorePlugin essaie de configurer
- * maven-publish avec un composant qui n'existe pas
+ * Plugin to fix components.release error in build.gradle
+ * This error occurs when ExpoModulesCorePlugin tries to configure
+ * maven-publish with a component that doesn't exist
  */
 function withGradleFix(config) {
   return withAppBuildGradle(config, (config) => {
     let buildGradle = config.modResults.contents;
 
-    // Ajouter la configuration pour éviter l'erreur components.release
-    if (!buildGradle.includes('afterEvaluate')) {
-      const insertPoint = buildGradle.lastIndexOf('}');
+    // Add configuration to avoid components.release error
+    // Only add if not already present
+    if (!buildGradle.includes('expo.modules.core.publishing.disabled')) {
+      // Append to the END of the file, not inside any block
       const gradleFix = `
-// Fix pour l'erreur ExpoModulesCorePlugin components.release
+
+// Fix for ExpoModulesCorePlugin components.release error
 afterEvaluate {
-    // Désactiver la publication Maven si elle cause des problèmes
+    // Disable Maven publication tasks that cause issues
     tasks.matching { it.name.contains('publish') && it.name.contains('Release') }.configureEach {
         enabled = false
     }
-
-    // S'assurer que les composants existent avant publication
-    if (project.plugins.hasPlugin('maven-publish')) {
-        publishing {
-            publications {
-                // Configuration vide pour éviter l'erreur
-            }
-        }
-    }
 }
 `;
-      buildGradle = buildGradle.slice(0, insertPoint) + gradleFix + buildGradle.slice(insertPoint);
+      // Append at the very end of the file
+      buildGradle = buildGradle.trimEnd() + gradleFix;
     }
 
     config.modResults.contents = buildGradle;
