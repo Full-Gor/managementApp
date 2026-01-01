@@ -32,7 +32,6 @@
     "scheme": "financemanager",
     "plugins": [
       "expo-router",
-      "./plugins/withGradleFix",
       [
         "expo-build-properties",
         {
