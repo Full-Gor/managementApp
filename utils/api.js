@@ -15,7 +15,7 @@ const authHeaders = async () => {
   };
 };
 
-export const auth = {
+export const authAPI = {
   login: async (email, password) => {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
@@ -92,11 +92,11 @@ const crud = (collection) => ({
   },
 });
 
-export const transactions = crud('transactions');
-export const cards = crud('cards');
-export const recipients = crud('recipients');
+export const transactionsAPI = crud('transactions');
+export const cardsAPI = crud('cards');
+export const recipientsAPI = crud('recipients');
 
-export const financeStats = {
+export const financeAPI = {
   get: async () => {
     const res = await fetch(`${BASE_URL}/db/finance-stats`, {
       headers: await authHeaders(),

@@ -61,13 +61,13 @@ export const FinanceProvider = ({ children }) => {
       }
 
       // Load cards
-      const cardsRes = await cards.getAll();
+      const cardsRes = await cardsAPI.getAll();
       if (cardsRes.success && cardsRes.data) {
         setCardList(cardsRes.data);
       }
 
       // Load recipients
-      const recipRes = await recipients.getAll();
+      const recipRes = await recipientsAPI.getAll();
       if (recipRes.success && recipRes.data) {
         setRecipientList(recipRes.data);
       }
@@ -89,7 +89,7 @@ export const FinanceProvider = ({ children }) => {
         date: new Date().toISOString(),
       };
 
-      const res = await transactions.create(newTx);
+      const res = await transactionsAPI.create(newTx);
       if (res.success) {
         await loadData();
         return { success: true };
@@ -121,7 +121,7 @@ export const FinanceProvider = ({ children }) => {
 
   const addCard = async (card) => {
     try {
-      const res = await cards.create(card);
+      const res = await cardsAPI.create(card);
       if (res.success) {
         await loadData();
         return { success: true };
@@ -134,7 +134,7 @@ export const FinanceProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await auth.login(email, password);
+      const res = await authAPI.login(email, password);
       if (res.token) {
         await loadData();
         return { success: true };
@@ -147,7 +147,7 @@ export const FinanceProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const res = await auth.register(name, email, password);
+      const res = await authAPI.register(name, email, password);
       if (res.token) {
         await loadData();
         return { success: true };
@@ -159,7 +159,7 @@ export const FinanceProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await auth.logout();
+    authAPI.logout();
     setUser(null);
     setTransactionList([]);
     setCardList([]);

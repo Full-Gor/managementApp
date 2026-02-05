@@ -31,7 +31,7 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>Welcome back</Text>
-            <Text style={styles.userName}>{user.name}</Text>
+            <Text style={styles.userName}>{user?.name || 'User'}</Text>
           </View>
           <TouchableOpacity style={styles.avatar}>
             <View style={styles.avatarPlaceholder} />
