@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth } from '../utils/api';
+import { authAPI } from '../utils/api';
 
 const AuthContext = createContext();
 
@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      const res = await auth.getMe();
+      const res = await authAPI.getMe();
       if (res.success && res.user) {
         setUser(res.user);
         setIsAuthenticated(true);
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await auth.login(email, password);
+      const res = await authAPI.login(email, password);
       if (res.success && res.token) {
         setUser(res.user);
         setIsAuthenticated(true);
@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const res = await auth.register(name, email, password);
+      const res = await authAPI.register(name, email, password);
       if (res.success && res.token) {
         setUser(res.user);
         setIsAuthenticated(true);
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await auth.logout();
+    await authAPI.logout();
     setUser(null);
     setIsAuthenticated(false);
   };

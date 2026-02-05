@@ -106,7 +106,7 @@ export const financeAPI = {
   },
 
   update: async (stats) => {
-    const existing = await financeStats.get();
+    const existing = await financeAPI.get();
     if (existing.id) {
       return crud('finance-stats').update(existing.id, stats);
     }
