@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, transactions, cards, recipients, financeStats } from '../utils/api';
+import { authAPI, transactionsAPI, cardsAPI, recipientsAPI, financeAPI } from '../utils/api';
 
 const FinanceContext = createContext();
 
@@ -28,13 +28,13 @@ export const FinanceProvider = ({ children }) => {
       setLoading(true);
 
       // Load user
-      const userRes = await auth.getMe();
+      const userRes = await authAPI.getMe();
       if (userRes.user) {
         setUser(userRes.user);
       }
 
       // Load transactions
-      const txRes = await transactions.getAll();
+      const txRes = await transactionsAPI.getAll();
       if (txRes.success && txRes.data) {
         setTransactionList(txRes.data);
 
