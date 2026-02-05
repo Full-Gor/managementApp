@@ -5,7 +5,7 @@ export const config = {
   // URL de l'API cloud1 - A MODIFIER selon ton environnement
   // En local: 'http://192.168.1.XXX:3000/api'
   // En production: 'https://ton-domaine.com/api'
-  API_BASE_URL: 'http://192.168.1.100:3000/api',
+  API_BASE_URL: 'http://192.168.1.144:3001/api',
 
   // Identifiant de l'application pour cloud1
   APP_ID: 'managementapp',
