@@ -1,133 +1,115 @@
-// API Service pour cloud1
-import { config } from '../constants/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../constants/config';
 
-const API_BASE = config.API_BASE_URL;
-const APP_ID = config.APP_ID;
+const { BASE_URL, APP_ID } = API_CONFIG;
 
-let authToken = null;
-
-// --- Auth ---
-export const setToken = (token) => {
-  authToken = token;
+const getToken = async () => {
+  return await AsyncStorage.getItem('token');
 };
 
-export const getToken = () => authToken;
+const authHeaders = async () => {
+  const token = await getToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
 
-const headers = () => ({
-  'Content-Type': 'application/json',
-  ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
-});
-
-// --- Auth API ---
-export const authAPI = {
-  async register(email, password, name) {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name, appId: APP_ID }),
-    });
-    const data = await res.json();
-    if (data.token) setToken(data.token);
-    return data;
-  },
-
-  async login(email, password) {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+export const auth = {
+  login: async (email, password) => {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, appId: APP_ID }),
     });
     const data = await res.json();
-    if (data.token) setToken(data.token);
+    if (data.token) await AsyncStorage.setItem('token', data.token);
     return data;
   },
 
-  async getMe() {
-    const res = await fetch(`${API_BASE}/auth/me`, { headers: headers() });
-    return res.json();
+  register: async (name, email, password) => {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, appId: APP_ID }),
+    });
+    const data = await res.json();
+    if (data.token) await AsyncStorage.setItem('token', data.token);
+    return data;
   },
 
-  logout() {
-    authToken = null;
+  logout: async () => {
+    await AsyncStorage.removeItem('token');
+  },
+
+  getMe: async () => {
+    const res = await fetch(`${BASE_URL}/auth/me`, {
+      headers: await authHeaders(),
+    });
+    return res.json();
   },
 };
 
-// --- CRUD generique pour collections ---
-const createCRUD = (collection) => ({
-  async getAll(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/db/${collection}?${query}`, { headers: headers() });
+const crud = (collection) => ({
+  getAll: async () => {
+    const res = await fetch(`${BASE_URL}/db/${collection}`, {
+      headers: await authHeaders(),
+    });
     return res.json();
   },
 
-  async getById(id) {
-    const res = await fetch(`${API_BASE}/db/${collection}/${id}`, { headers: headers() });
+  getOne: async (id) => {
+    const res = await fetch(`${BASE_URL}/db/${collection}/${id}`, {
+      headers: await authHeaders(),
+    });
     return res.json();
   },
 
-  async create(data) {
-    const res = await fetch(`${API_BASE}/db/${collection}`, {
+  create: async (data) => {
+    const res = await fetch(`${BASE_URL}/db/${collection}`, {
       method: 'POST',
-      headers: headers(),
+      headers: await authHeaders(),
       body: JSON.stringify(data),
     });
     return res.json();
   },
 
-  async update(id, data) {
-    const res = await fetch(`${API_BASE}/db/${collection}/${id}`, {
+  update: async (id, data) => {
+    const res = await fetch(`${BASE_URL}/db/${collection}/${id}`, {
       method: 'PUT',
-      headers: headers(),
+      headers: await authHeaders(),
       body: JSON.stringify(data),
     });
     return res.json();
   },
 
-  async delete(id) {
-    const res = await fetch(`${API_BASE}/db/${collection}/${id}`, {
+  delete: async (id) => {
+    const res = await fetch(`${BASE_URL}/db/${collection}/${id}`, {
       method: 'DELETE',
-      headers: headers(),
+      headers: await authHeaders(),
     });
     return res.json();
   },
 });
 
-// --- Collections specifiques ---
-export const transactionsAPI = createCRUD('transactions');
-export const cardsAPI = createCRUD('cards');
-export const recipientsAPI = createCRUD('recipients');
+export const transactions = crud('transactions');
+export const cards = crud('cards');
+export const recipients = crud('recipients');
 
-// --- Finance Stats ---
-export const financeAPI = {
-  async getStats() {
-    // Calcule balance, income, expenses depuis les transactions
-    const res = await transactionsAPI.getAll();
-    if (!res.success) return { balance: 0, income: 0, expenses: 0 };
-
-    const transactions = res.data || [];
-    let income = 0;
-    let expenses = 0;
-
-    transactions.forEach(t => {
-      if (t.amount > 0) income += t.amount;
-      else expenses += Math.abs(t.amount);
+export const financeStats = {
+  get: async () => {
+    const res = await fetch(`${BASE_URL}/db/finance-stats`, {
+      headers: await authHeaders(),
     });
-
-    return {
-      balance: income - expenses,
-      income,
-      expenses,
-      transactions,
-    };
+    const data = await res.json();
+    return data.data?.[0] || { balance: 0, income: 0, expenses: 0 };
   },
-};
 
-export default {
-  auth: authAPI,
-  transactions: transactionsAPI,
-  cards: cardsAPI,
-  recipients: recipientsAPI,
-  finance: financeAPI,
-  setToken,
-  getToken,
+  update: async (stats) => {
+    const existing = await financeStats.get();
+    if (existing.id) {
+      return crud('finance-stats').update(existing.id, stats);
+    }
+    return crud('finance-stats').create(stats);
+  },
 };

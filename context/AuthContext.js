@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authAPI, setToken, getToken } from '../utils/api';
+import { auth } from '../utils/api';
 
 const AuthContext = createContext();
 
@@ -15,84 +14,68 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Charger le token au demarrage
   useEffect(() => {
-    loadStoredAuth();
+    checkAuth();
   }, []);
 
-  const loadStoredAuth = async () => {
+  const checkAuth = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem('auth_token');
-      if (storedToken) {
-        setToken(storedToken);
-        const res = await authAPI.getMe();
-        if (res.success && res.user) {
-          setUser(res.user);
-        } else {
-          // Token invalide
-          await AsyncStorage.removeItem('auth_token');
-          setToken(null);
-        }
+      const res = await auth.getMe();
+      if (res.success && res.user) {
+        setUser(res.user);
+        setIsAuthenticated(true);
       }
-    } catch (e) {
-      console.error('Error loading auth:', e);
+    } catch (error) {
+      console.error('Auth check failed:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const login = async (email, password) => {
-    setError(null);
     try {
-      const res = await authAPI.login(email, password);
+      const res = await auth.login(email, password);
       if (res.success && res.token) {
-        await AsyncStorage.setItem('auth_token', res.token);
         setUser(res.user);
+        setIsAuthenticated(true);
         return { success: true };
-      } else {
-        setError(res.error || 'Erreur de connexion');
-        return { success: false, error: res.error };
       }
-    } catch (e) {
-      setError('Erreur reseau');
-      return { success: false, error: 'Erreur reseau' };
+      return { success: false, message: res.message || 'Login failed' };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   };
 
-  const register = async (email, password, name) => {
-    setError(null);
+  const register = async (name, email, password) => {
     try {
-      const res = await authAPI.register(email, password, name);
+      const res = await auth.register(name, email, password);
       if (res.success && res.token) {
-        await AsyncStorage.setItem('auth_token', res.token);
         setUser(res.user);
+        setIsAuthenticated(true);
         return { success: true };
-      } else {
-        setError(res.error || 'Erreur d\'inscription');
-        return { success: false, error: res.error };
       }
-    } catch (e) {
-      setError('Erreur reseau');
-      return { success: false, error: 'Erreur reseau' };
+      return { success: false, message: res.message || 'Registration failed' };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   };
 
   const logout = async () => {
-    authAPI.logout();
-    await AsyncStorage.removeItem('auth_token');
+    await auth.logout();
     setUser(null);
+    setIsAuthenticated(false);
   };
 
   const value = {
     user,
     loading,
-    error,
-    isAuthenticated: !!user,
+    isAuthenticated,
     login,
     register,
     logout,
+    checkAuth,
   };
 
   return (

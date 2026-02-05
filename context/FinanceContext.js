@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { transactionsAPI, cardsAPI, recipientsAPI, financeAPI } from '../utils/api';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { auth, transactions, cards, recipients, financeStats } from '../utils/api';
 
 const FinanceContext = createContext();
 
@@ -13,89 +12,101 @@ export const useFinance = () => {
 };
 
 export const FinanceProvider = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
-
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [balance, setBalance] = useState(0);
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
-  const [transactions, setTransactions] = useState([]);
-  const [cards, setCards] = useState([]);
-  const [recipients, setRecipients] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [transactionList, setTransactionList] = useState([]);
+  const [expenseHistory, setExpenseHistory] = useState([]);
+  const [incomeHistory, setIncomeHistory] = useState([]);
+  const [cardList, setCardList] = useState([]);
+  const [recipientList, setRecipientList] = useState([]);
 
-  // Charger les donnees quand l'utilisateur est connecte
-  const loadData = useCallback(async () => {
-    if (!isAuthenticated) return;
-
-    setLoading(true);
-    setError(null);
-
+  const loadData = async () => {
     try {
-      // Charger toutes les donnees en parallele
-      const [statsRes, cardsRes, recipientsRes] = await Promise.all([
-        financeAPI.getStats(),
-        cardsAPI.getAll(),
-        recipientsAPI.getAll(),
-      ]);
+      setLoading(true);
 
-      setBalance(statsRes.balance || 0);
-      setIncome(statsRes.income || 0);
-      setExpenses(statsRes.expenses || 0);
-      setTransactions(statsRes.transactions || []);
-      setCards(cardsRes.data || []);
-      setRecipients(recipientsRes.data || []);
-    } catch (e) {
-      console.error('Error loading finance data:', e);
-      setError('Erreur de chargement des donnees');
+      // Load user
+      const userRes = await auth.getMe();
+      if (userRes.user) {
+        setUser(userRes.user);
+      }
+
+      // Load transactions
+      const txRes = await transactions.getAll();
+      if (txRes.success && txRes.data) {
+        setTransactionList(txRes.data);
+
+        let totalIncome = 0;
+        let totalExpenses = 0;
+        const incomeList = [];
+        const expenseList = [];
+
+        txRes.data.forEach(tx => {
+          if (tx.amount > 0) {
+            totalIncome += tx.amount;
+            incomeList.push(tx);
+          } else {
+            totalExpenses += Math.abs(tx.amount);
+            expenseList.push(tx);
+          }
+        });
+
+        setIncome(totalIncome);
+        setExpenses(totalExpenses);
+        setBalance(totalIncome - totalExpenses);
+        setIncomeHistory(incomeList);
+        setExpenseHistory(expenseList);
+      }
+
+      // Load cards
+      const cardsRes = await cards.getAll();
+      if (cardsRes.success && cardsRes.data) {
+        setCardList(cardsRes.data);
+      }
+
+      // Load recipients
+      const recipRes = await recipients.getAll();
+      if (recipRes.success && recipRes.data) {
+        setRecipientList(recipRes.data);
+      }
+    } catch (error) {
+      console.error('Error loading finance data:', error);
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  };
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, []);
 
-  // --- Transactions ---
   const addTransaction = async (transaction) => {
     try {
-      const newTransaction = {
+      const newTx = {
         ...transaction,
         date: new Date().toISOString(),
-        userId: user?.id,
       };
 
-      const res = await transactionsAPI.create(newTransaction);
+      const res = await transactions.create(newTx);
       if (res.success) {
-        // Mettre a jour l'etat local
-        const created = res.data;
-        setTransactions([created, ...transactions]);
-
-        if (created.amount > 0) {
-          setIncome(income + created.amount);
-          setBalance(balance + created.amount);
-        } else {
-          setExpenses(expenses + Math.abs(created.amount));
-          setBalance(balance + created.amount);
-        }
-
-        return { success: true, data: created };
+        await loadData();
+        return { success: true };
       }
-      return { success: false, error: res.error };
-    } catch (e) {
-      console.error('Error adding transaction:', e);
-      return { success: false, error: 'Erreur reseau' };
+      return { success: false, message: res.message };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   };
 
-  const transfer = async (recipientName, amount, note) => {
+  const transfer = async (recipient, amount, note) => {
     if (amount > balance) {
-      return { success: false, message: 'Solde insuffisant' };
+      return { success: false, message: 'Insufficient balance' };
     }
 
     const result = await addTransaction({
-      name: `Transfert vers ${recipientName}`,
+      name: `Transfer to ${recipient}`,
       amount: -amount,
       icon: 'send',
       color: '#0066ff',
@@ -103,80 +114,37 @@ export const FinanceProvider = ({ children }) => {
       type: 'transfer',
     });
 
-    if (result.success) {
-      return { success: true, message: 'Transfert effectue' };
-    }
-    return { success: false, message: result.error || 'Erreur' };
+    return result.success
+      ? { success: true, message: 'Transfer successful' }
+      : result;
   };
 
-  // --- Cards ---
   const addCard = async (card) => {
     try {
-      const res = await cardsAPI.create({
-        ...card,
-        userId: user?.id,
-      });
+      const res = await cards.create(card);
       if (res.success) {
-        setCards([...cards, res.data]);
-        return { success: true, data: res.data };
-      }
-      return { success: false, error: res.error };
-    } catch (e) {
-      return { success: false, error: 'Erreur reseau' };
-    }
-  };
-
-  const deleteCard = async (cardId) => {
-    try {
-      const res = await cardsAPI.delete(cardId);
-      if (res.success) {
-        setCards(cards.filter(c => c.id !== cardId));
+        await loadData();
         return { success: true };
       }
-      return { success: false, error: res.error };
-    } catch (e) {
-      return { success: false, error: 'Erreur reseau' };
+      return { success: false, message: res.message };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   };
-
-  // --- Recipients ---
-  const addRecipient = async (recipient) => {
-    try {
-      const res = await recipientsAPI.create({
-        ...recipient,
-        userId: user?.id,
-      });
-      if (res.success) {
-        setRecipients([...recipients, res.data]);
-        return { success: true, data: res.data };
-      }
-      return { success: false, error: res.error };
-    } catch (e) {
-      return { success: false, error: 'Erreur reseau' };
-    }
-  };
-
-  // Filtres pour historique
-  const expenseHistory = transactions.filter(t => t.amount < 0);
-  const incomeHistory = transactions.filter(t => t.amount > 0);
 
   const value = {
+    loading,
     balance,
     income,
     expenses,
-    transactions,
+    transactions: transactionList,
     expenseHistory,
     incomeHistory,
-    cards,
-    recipients,
-    user,
-    loading,
-    error,
+    cards: cardList,
+    recipients: recipientList,
     addTransaction,
     transfer,
     addCard,
-    deleteCard,
-    addRecipient,
     refresh: loadData,
   };
 
