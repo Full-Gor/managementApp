@@ -132,8 +132,46 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
+  const login = async (email, password) => {
+    try {
+      const res = await auth.login(email, password);
+      if (res.token) {
+        await loadData();
+        return { success: true };
+      }
+      return { success: false, message: res.error || 'Erreur connexion' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  };
+
+  const register = async (name, email, password) => {
+    try {
+      const res = await auth.register(name, email, password);
+      if (res.token) {
+        await loadData();
+        return { success: true };
+      }
+      return { success: false, message: res.error || 'Erreur inscription' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  };
+
+  const logout = async () => {
+    await auth.logout();
+    setUser(null);
+    setTransactionList([]);
+    setCardList([]);
+    setRecipientList([]);
+    setBalance(0);
+    setIncome(0);
+    setExpenses(0);
+  };
+
   const value = {
     loading,
+    user,
     balance,
     income,
     expenses,
@@ -145,6 +183,9 @@ export const FinanceProvider = ({ children }) => {
     addTransaction,
     transfer,
     addCard,
+    login,
+    register,
+    logout,
     refresh: loadData,
   };
 
