@@ -27,11 +27,11 @@ export const authAPI = {
     return data;
   },
 
-  register: async (username, userId, password) => {
+  register: async (name, userId, password) => {
     const res = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, userId, password, appId: APP_ID }),
+      body: JSON.stringify({ name, userId, password, appId: APP_ID }),
     });
     const data = await res.json();
     if (data.data?.token) await AsyncStorage.setItem('token', data.data.token);
