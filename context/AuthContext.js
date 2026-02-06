@@ -37,20 +37,23 @@ export const AuthProvider = ({ children }) => {
   const login = async (userId, password) => {
     try {
       const res = await authAPI.login(userId, password);
+      console.log('Login response:', JSON.stringify(res));
       if (res.success && res.data?.token) {
         setUser(res.data.user);
         setIsAuthenticated(true);
         return { success: true };
       }
-      return { success: false, error: res.error || 'Connexion echouee' };
+      return { success: false, error: res.error || res.message || 'Connexion echouee' };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error('Login error:', error);
+      return { success: false, error: 'Erreur reseau: ' + error.message };
     }
   };
 
   const register = async (username, userId, password) => {
     try {
       const res = await authAPI.register(username, userId, password);
+      console.log('Register response:', JSON.stringify(res));
       if (res.success && res.data?.token) {
         setUser(res.data.user);
         setIsAuthenticated(true);
@@ -58,7 +61,8 @@ export const AuthProvider = ({ children }) => {
       }
       return { success: false, error: res.error || res.errors?.[0]?.msg || 'Inscription echouee' };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error('Register error:', error);
+      return { success: false, error: 'Erreur reseau: ' + error.message };
     }
   };
 
