@@ -20,29 +20,29 @@ export default function LoginScreen() {
   const { login, register, error, loading } = useAuth();
 
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [localError, setLocalError] = useState('');
 
   const handleSubmit = async () => {
     setLocalError('');
 
-    if (!email || !password) {
-      setLocalError('Email et mot de passe requis');
+    if (!userId || !password) {
+      setLocalError('Identifiant et mot de passe requis');
       return;
     }
 
-    if (!isLogin && !name) {
+    if (!isLogin && !username) {
       setLocalError('Nom requis pour l\'inscription');
       return;
     }
 
     let result;
     if (isLogin) {
-      result = await login(email, password);
+      result = await login(userId, password);
     } else {
-      result = await register(email, password, name);
+      result = await register(username, userId, password);
     }
 
     if (result.success) {
@@ -75,27 +75,26 @@ export default function LoginScreen() {
         <View style={styles.form}>
           {!isLogin && (
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nom</Text>
+              <Text style={styles.label}>Nom d'affichage</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Votre nom"
+                placeholder="Votre pseudo"
                 placeholderTextColor={colors.textSecondary}
-                value={name}
-                onChangeText={setName}
+                value={username}
+                onChangeText={setUsername}
                 autoCapitalize="words"
               />
             </View>
           )}
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>Identifiant</Text>
             <TextInput
               style={styles.input}
-              placeholder="votre@email.com"
+              placeholder="ex: arnaud123"
               placeholderTextColor={colors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              value={userId}
+              onChangeText={setUserId}
               autoCapitalize="none"
             />
           </View>

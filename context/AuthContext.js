@@ -23,8 +23,8 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     try {
       const res = await authAPI.getMe();
-      if (res.success && res.user) {
-        setUser(res.user);
+      if (res.success && res.data) {
+        setUser(res.data);
         setIsAuthenticated(true);
       }
     } catch (error) {
@@ -34,31 +34,31 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (userId, password) => {
     try {
-      const res = await authAPI.login(email, password);
-      if (res.success && res.token) {
-        setUser(res.user);
+      const res = await authAPI.login(userId, password);
+      if (res.success && res.data?.token) {
+        setUser(res.data.user);
         setIsAuthenticated(true);
         return { success: true };
       }
-      return { success: false, message: res.message || 'Login failed' };
+      return { success: false, error: res.error || 'Connexion echouee' };
     } catch (error) {
-      return { success: false, message: error.message };
+      return { success: false, error: error.message };
     }
   };
 
-  const register = async (name, email, password) => {
+  const register = async (username, userId, password) => {
     try {
-      const res = await authAPI.register(name, email, password);
-      if (res.success && res.token) {
-        setUser(res.user);
+      const res = await authAPI.register(username, userId, password);
+      if (res.success && res.data?.token) {
+        setUser(res.data.user);
         setIsAuthenticated(true);
         return { success: true };
       }
-      return { success: false, message: res.message || 'Registration failed' };
+      return { success: false, error: res.error || res.errors?.[0]?.msg || 'Inscription echouee' };
     } catch (error) {
-      return { success: false, message: error.message };
+      return { success: false, error: error.message };
     }
   };
 
