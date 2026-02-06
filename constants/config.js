@@ -1,5 +1,5 @@
 // Configuration API cloud1
 export const API_CONFIG = {
-  BASE_URL: 'http://192.168.1.144:3000/api',
+  BASE_URL: 'https://nexuserv.duckdns.org/api',
   APP_ID: 'managementapp',
 };
